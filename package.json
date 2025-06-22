@@ -1,0 +1,12 @@
+{
+  "name": "posthub-backend",
+  "version": "1.0.0",
+  "description": "backend of posthub",
+  "license": "ISC",
+  "author": "laxman singh",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
