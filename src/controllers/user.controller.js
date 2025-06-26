@@ -379,7 +379,17 @@ const getUserChannelProfile = asyncHandler(async(req,res)=>{
     if(!username?.trim()){
         throw ApiError(400, "missing username");
     }
+    
+    if (!username || typeof username !== "string") {
+        throw new ApiError(400, "Invalid username");
+    }
 
+    const user = await User.findOne({ username: username.toLowerCase() });
+
+    if (!user) {
+        throw new ApiError(404, "User not found with given username");
+    }
+    
     const channel = await User.aggregate([
         {
             $match: {
@@ -457,7 +467,7 @@ const getUserChannelProfile = asyncHandler(async(req,res)=>{
 
 const getWatchHistory = asyncHandler(async(req,res)=>{
     if(!req.user){
-        return ApiError(403," loged in to watch history")
+        throw ApiError(403," loged in to watch history")
     }
     const user = await User.aggregate([
         {   
