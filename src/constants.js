@@ -1,1 +1,1 @@
-export const DB_NAME = "postHub"
+export const DB_NAME = "laxman"
