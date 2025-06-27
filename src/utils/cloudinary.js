@@ -35,7 +35,7 @@ const deleteFromCloudinary = async(url)=>{
         if(!url)return null;
         const publicId = extractPublicIdFromUrl(url);
         const response = await cloudinary.uploader.destroy(publicId,{
-            resource_type: "image"
+            resource_type: "auto"
         });
         console.log("File deleted successfully ",response);
         return response;

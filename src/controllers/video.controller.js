@@ -4,7 +4,7 @@ import {User} from "../models/user.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
-import {uploadOnCloudinary} from "../utils/cloudinary.js"
+import {uploadOnCloudinary, deleteFromCloudinary} from "../utils/cloudinary.js"
 import {getVideoDuration} from "../utils/getVideoDuration.js"
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -90,24 +90,124 @@ const publishAVideo = asyncHandler(async (req, res) => {
 })
 
 const getVideoById = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
-    //TODO: get video by id
-})
+  const { videoId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(videoId)) {
+    throw new ApiError(400, "Invalid video ID");
+  }
+
+  const video = await Video.findById(videoId).populate("owner", "username email");
+
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, video, "Video fetched successfully"));
+});
 
 const updateVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
     //TODO: update video details like title, description, thumbnail
+  const { videoId } = req.params;
+  const { title, description } = req.body;
 
-})
+  if (!mongoose.Types.ObjectId.isValid(videoId)) {
+    throw new ApiError(400, "Invalid video ID");
+  }
+
+  const video = await Video.findById(videoId);
+
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  if (video.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not allowed to update this video");
+  }
+
+  if (req.file?.path) {
+    const newThumbnail = await uploadOnCloudinary(req.file.path);
+    if (!newThumbnail) {
+      throw new ApiError(500, "Failed to upload new thumbnail");
+    }
+    try {
+       await deleteFromCloudinary(video.thumbnail); 
+    } catch (err) {
+        console.error("Failed to delete old thumbnail:", err.message);
+    }
+    video.thumbnail = newThumbnail.url;
+  }
+
+  if (title) video.title = title;
+  if (description) video.description = description;
+
+  await video.save();
+  return res.status(200).json(
+    new ApiResponse(200, video, "Video updated successfully")
+  );
+});
+
 
 const deleteVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
-    //TODO: delete video
-})
+  const { videoId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(videoId)) {
+    throw new ApiError(400, "Invalid video ID");
+  }
+
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  if (video.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not allowed to delete this video");
+  }
+
+  try {
+    await deleteFromCloudinary(video.videoFile);
+    await deleteFromCloudinary(video.thumbnail);
+  } catch (err) {
+    console.error("Cloudinary cleanup failed:", err.message);
+  }
+
+  await video.deleteOne();
+
+  return res.status(200).json(
+    new ApiResponse(200, {}, "Video deleted successfully")
+  );
+});
+
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
-})
+  const { videoId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(videoId)) {
+    throw new ApiError(400, "Invalid video ID");
+  }
+
+  const video = await Video.findById(videoId);
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+
+  if (video.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not allowed to change this video's publish status");
+  }
+
+  video.isPublished = !video.isPublished;
+  await video.save();
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { isPublished: video.isPublished },
+      `Video is now ${video.isPublished ? "published" : "unpublished"}`
+    )
+  );
+});
+
 
 export {
     getAllVideos,
